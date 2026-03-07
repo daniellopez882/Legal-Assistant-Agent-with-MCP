@@ -159,7 +159,15 @@ def create_app() -> FastAPI:
 
 def register_routes(app: FastAPI):
     """Register all API routes."""
-    
+
+    # Register authentication routes
+    try:
+        from src.auth import register_auth_routes
+        register_auth_routes(app)
+        logger.info("Authentication routes registered")
+    except ImportError as e:
+        logger.warning(f"Authentication not available: {e}")
+
     @app.get("/", response_model=StandardResponse)
     async def root():
         """Root endpoint - API information."""

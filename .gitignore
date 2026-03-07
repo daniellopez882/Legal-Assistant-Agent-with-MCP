@@ -26,11 +26,6 @@ ENV/
 env/
 .venv
 
-# Environment Variables
-.env
-.env.local
-.env.*.local
-
 # IDE
 .vscode/
 .idea/
@@ -39,49 +34,55 @@ env/
 *~
 .DS_Store
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.nox/
-coverage.xml
-*.cover
-*.py,cover
+# Environment Variables
+.env
+.env.local
+.env.*.local
 
 # Logs
-*.log
 logs/
+*.log
 
 # Database
 *.db
 *.sqlite
 *.sqlite3
 
-# Jupyter Notebook
-.ipynb_checkpoints
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+coverage.xml
+*.cover
 
-# pyenv
-.python-version
-
-# mypy
+# MyPy
 .mypy_cache/
 .dmypy.json
 dmypy.json
 
-# Pyre type checker
-.pyre/
+# Jupyter
+.ipynb_checkpoints
+
+# Documentation
+docs/_build/
+
+# Docker
+.dockerignore
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# OS
+Thumbs.db
+.DS_Store
 
 # Project specific
-invoices/
-documents/
 *.pdf
 *.docx
-temp/
-tmp/
-
-# Secrets
-*.pem
-*.key
-credentials.json
-service_account.json
+*.txt
+!requirements.txt
+!README.md
+!DEPLOYMENT.md

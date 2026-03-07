@@ -14,13 +14,13 @@ class Settings(BaseSettings):
     # ============================================================
     # LLM API Keys
     # ============================================================
-    openai_api_key: str = Field(..., env="OPENAI_API_KEY")
-    anthropic_api_key: str = Field(..., env="ANTHROPIC_API_KEY")
-    
+    openai_api_key: str = Field(default="sk-placeholder", env="OPENAI_API_KEY")
+    anthropic_api_key: str = Field(default="sk-ant-placeholder", env="ANTHROPIC_API_KEY")
+
     # ============================================================
     # Pinecone Vector Database
     # ============================================================
-    pinecone_api_key: str = Field(..., env="PINECONE_API_KEY")
+    pinecone_api_key: str = Field(default="placeholder-pinecone-key", env="PINECONE_API_KEY")
     pinecone_environment: str = Field(default="us-west-2", env="PINECONE_ENVIRONMENT")
     pinecone_index_name: str = Field(default="legal-assistant-index", env="PINECONE_INDEX_NAME")
     
