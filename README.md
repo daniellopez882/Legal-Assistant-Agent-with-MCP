@@ -2,7 +2,7 @@
 
 # ⚖️ LexPilot
 
-**AI-Powered Legal Intelligence Platform**
+**AI-Powered Legal Intelligence for Modern Law Firms**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
@@ -10,102 +10,99 @@
 [![LangGraph](https://img.shields.io/badge/LangGraph-0.2.0+-purple.svg)](https://langchain-ai.github.io/langgraph/)
 [![MCP Protocol](https://img.shields.io/badge/MCP-1.0.0+-orange.svg)](https://modelcontextprotocol.io)
 
-> **Transform your law firm with enterprise-grade AI.**  
-> Contract review · Legal research · Document drafting · Deadline tracking · Billing automation
+> Automate 80% of legal grunt work. Focus on winning cases.
 
-[Quick Start](#-quick-start) • [Documentation](#-documentation) • [API Reference](#-api-reference) • [Examples](#-examples)
+[Quick Start](#-quick-start) • [Features](#-features) • [API Docs](#-api-reference) • [Examples](#-examples)
 
 </div>
 
 ---
 
-## 🚀 Why LexPilot?
+## 🚀 The Problem
 
-Legal work is 80% research, drafting, and administrative tasks. LexPilot automates the routine so your attorneys can focus on what matters—**winning cases**.
+Lawyers spend **4–6 hours reviewing a single contract** and **8+ hours on legal research** that AI can do in minutes. LexPilot changes that.
 
-| Traditional Workflow | With LexPilot |
-|---------------------|---------------|
-| ⏱️ 4-6 hours contract review | ⏱️ 15 minutes AI-assisted |
-| 📚 Manual case research | 🤖 Instant precedent analysis |
-| ✍️ Hours drafting documents | ⚡ First drafts in seconds |
-| 📋 Spreadsheet deadline tracking | 🔔 Automated alerts & reminders |
-| 🧮 Manual billing calculations | 💰 Auto-generated invoices |
+| Task | Without LexPilot | With LexPilot |
+|------|------------------|---------------|
+| Contract Review | 4–6 hours | **15 minutes** |
+| Legal Research | 8–12 hours | **30 minutes** |
+| Document Drafting | 2–3 hours | **2 minutes** |
+| Invoice Generation | 1–2 hours | **30 seconds** |
 
 ---
 
-## 🎯 What It Does
+## ✨ What It Does
 
 ### 📄 Contract Intelligence
-Upload any agreement—NDA, MSA, SOW, employment contracts. LexPilot identifies:
-- 🔴 **High-risk clauses** requiring immediate attention
-- 🟡 **Negotiable terms** for better deals
-- ⚪ **Missing protections** standard in your jurisdiction
-- 📝 **Suggested redlines** ready for negotiation
+Upload any agreement. Get instant risk analysis with redline suggestions.
+- 🔴 High-risk clause detection
+- 🟡 Missing protections flagged
+- 📝 Suggested revisions ready for negotiation
+- ⚖️ Jurisdiction-aware enforceability checks
 
 ### ⚖️ Legal Research Engine
-Ask complex legal questions. Get structured memos with:
-- ✅ **Verified citations** from binding authorities
-- 📊 **Circuit split analysis** where applicable
-- ⚠️ **Adverse authority** disclosure (ethics-compliant)
-- 🎯 **Confidence scores** on every legal conclusion
+Ask complex questions. Get structured memos with verified citations.
+- ✅ Binding authority only (no hallucinations)
+- 📊 Circuit split analysis
+- ⚠️ Adverse authority disclosure (ethics-compliant)
+- 🎯 Confidence scores on every conclusion
 
 ### 📝 Document Drafting
-Generate first-draft documents in seconds:
-- **20+ template types** (NDA, MSA, Demand Letters, etc.)
-- **Jurisdiction-aware** clauses
-- **Inline attorney notes** for review points
-- **Consistency checks** across defined terms
+Generate first drafts in seconds across 20+ document types.
+- NDAs, MSAs, SOWs, Employment Agreements
+- Jurisdiction-specific clauses
+- Inline attorney notes for review points
+- Consistency checks across defined terms
 
 ### 📅 Deadline Management
-Never miss a critical date:
-- **Statute of limitations** tracking
-- **Court rule calculations** (FRCP, state rules)
-- **Escalating alerts** (90d → 30d → 14d → 7d → 3d → 1d)
-- **Daily docket reports** every morning at 7 AM
+Never miss a critical date again.
+- Statute of limitations tracking
+- Court rule calculations (FRCP, state rules)
+- Escalating alerts (90d → 30d → 14d → 7d → 3d → 1d)
+- Daily docket reports at 7 AM
 
 ### 💰 Billing Automation
-Turn time entries into invoices:
-- **Block billing detection** (ethics compliance)
-- **Trust account** tracking
-- **Budget burn rate** monitoring
-- **Professional invoice** generation (PDF/HTML)
+Turn time entries into professional invoices.
+- Block billing detection (ethics compliance)
+- Trust account tracking
+- Budget burn rate monitoring
+- PDF/HTML invoice generation
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Your Application                         │
-│              (Web Dashboard / Mobile App)                   │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   FastAPI Gateway                           │
-│              REST API • MCP Protocol                        │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌─────────────────────────────────────────────────────────────┐
-│              LangGraph Orchestrator                         │
-│         Task Classification • Agent Routing                 │
-└─────────────────────────────────────────────────────────────┘
-                            │
-        ┌───────────────────┼───────────────────┐
-        ▼                   ▼                   ▼
-┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-│  Contract    │   │   Case       │   │   Document   │
-│  Reviewer    │   │  Researcher  │   │   Drafter    │
-│  (Claude)    │   │   (GPT-4)    │   │   (Claude)   │
-└──────────────┘   └──────────────┘   └──────────────┘
-        │                   │                   │
-        ▼                   ▼                   ▼
-┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-│  Deadline    │   │   Billing    │   │   Pinecone   │
-│  Tracker     │   │  Calculator  │   │  Vector DB   │
-│   (GPT-4)    │   │   (GPT-4)    │   │              │
-└──────────────┘   └──────────────┘   └──────────────┘
+┌────────────────────────────────────────────────┐
+│         Your App (Web / Mobile / CLI)          │
+└────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌────────────────────────────────────────────────┐
+│              FastAPI + MCP Gateway             │
+│         REST API • Model Context Protocol      │
+└────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌────────────────────────────────────────────────┐
+│           LangGraph Orchestrator               │
+│      Task Classification • Agent Routing       │
+└────────────────────────────────────────────────┘
+                      │
+    ┌─────────────────┼─────────────────┐
+    ▼                 ▼                 ▼
+┌─────────┐   ┌─────────────┐   ┌───────────┐
+│Contract │   │   Case      │   │ Document  │
+│Reviewer │   │ Researcher  │   │ Drafter   │
+│(Claude) │   │  (GPT-4o)   │   │ (Claude)  │
+└─────────┘   └─────────────┘   └───────────┘
+    │                 │                 │
+    ▼                 ▼                 ▼
+┌─────────┐   ┌─────────────┐   ┌───────────┐
+│Deadline │   │   Billing   │   │ Pinecone  │
+│Tracker  │   │ Calculator  │   │ Vector DB │
+│(GPT-4o) │   │  (GPT-4o)   │   │           │
+└─────────┘   └─────────────┘   └───────────┘
 ```
 
 ---
@@ -118,9 +115,9 @@ Turn time entries into invoices:
 # Required
 - Python 3.10+
 - OpenAI API Key
-- Anthropic API Key (recommended for Claude)
+- Anthropic API Key (recommended)
 
-# Optional (for full functionality)
+# Optional (for full features)
 - Pinecone API Key (vector search)
 - PostgreSQL (persistent storage)
 ```
@@ -128,43 +125,43 @@ Turn time entries into invoices:
 ### Installation
 
 ```bash
-# Clone the repository
+# Clone
 git clone https://github.com/daniellopez882/Legal-Assistant-Agent-with-MCP.git
 cd "MCP LEGAL ASSISTANT AGENT"
 
-# Create virtual environment
+# Setup environment
 python -m venv venv
 source venv/bin/activate  # Linux/Mac
-# or
 .\venv\Scripts\activate   # Windows
 
-# Install dependencies
+# Install
 pip install -r requirements.txt
-
-# Configure environment
 cp .env.example .env
 # Edit .env with your API keys
+```
+
+### Start the Server
+
+```bash
+python main.py serve
 ```
 
 ### First API Call
 
 ```bash
-# Start the server
-python main.py serve
-
-# In another terminal, review a contract
+# Review a contract
 curl -X POST http://localhost:8000/api/v1/contract/review \
   -H "Content-Type: application/json" \
   -d '{
-    "document_text": "YOUR_CONTRACT_TEXT_HERE",
-    "document_name": "Test Agreement",
+    "document_text": "YOUR_CONTRACT_TEXT",
+    "document_name": "NDA.pdf",
     "matter_id": "MATTER-001",
     "client_name": "Acme Corp",
     "jurisdiction": "Delaware"
   }'
 ```
 
-### Using the CLI
+### CLI Usage
 
 ```bash
 # Review a contract PDF
@@ -192,12 +189,11 @@ python main.py research \
 
 ---
 
-## 📖 Documentation
+## 📖 Core Concepts
 
-### Core Concepts
+### Matters
 
-#### 1. **Matters**
-A matter is a legal case or transaction. Every action in LexPilot is associated with a matter.
+Every action in LexPilot is tied to a **matter** (a legal case or transaction).
 
 ```python
 matter_info = MatterInfo(
@@ -209,19 +205,21 @@ matter_info = MatterInfo(
 )
 ```
 
-#### 2. **Agents**
+### Agents
+
 Specialist AI agents handle specific tasks:
 
-| Agent | Model | Use Case |
-|-------|-------|----------|
+| Agent | Model | Purpose |
+|-------|-------|---------|
 | ContractReviewer | Claude 3.5 Sonnet | Risk analysis, redlining |
 | CaseResearcher | GPT-4o | Legal research, citations |
 | DocumentDrafter | Claude 3.5 Sonnet | Document generation |
 | DeadlineTracker | GPT-4o | Deadline management |
 | BillingCalculator | GPT-4o | Invoice generation |
 
-#### 3. **Orchestration**
-The orchestrator automatically routes tasks to the right agent:
+### Orchestration
+
+The orchestrator routes tasks to the right agent automatically:
 
 ```python
 from src.orchestrator import LegalOrchestrator
@@ -234,14 +232,19 @@ result = await orchestrator.process({
 })
 ```
 
-### API Reference
+---
 
-#### Contract Review
+## 🔌 API Reference
+
+### Contract Review
 
 ```http
 POST /api/v1/contract/review
 Content-Type: application/json
+```
 
+**Request:**
+```json
 {
   "document_text": "string (required)",
   "document_name": "string (required)",
@@ -275,23 +278,23 @@ Content-Type: application/json
 }
 ```
 
-#### Case Research
+### Case Research
 
 ```http
 POST /api/v1/case/research
 Content-Type: application/json
 
 {
-  "legal_question": "string (required)",
-  "jurisdiction": "string (required)",
-  "practice_area": "string (required)",
-  "matter_id": "string (required)",
-  "client_name": "string (required)",
+  "legal_question": "string",
+  "jurisdiction": "string",
+  "practice_area": "string",
+  "matter_id": "string",
+  "client_name": "string",
   "favorable_research": "boolean (optional)"
 }
 ```
 
-#### Document Drafting
+### Document Drafting
 
 ```http
 POST /api/v1/document/draft
@@ -322,7 +325,7 @@ from mcp import ClientSession
 async with ClientSession() as session:
     # List available tools
     tools = await session.list_tools()
-    
+
     # Call contract reviewer
     result = await session.call_tool(
         "contract_reviewer",
@@ -386,25 +389,13 @@ pytest tests/test_contract_reviewer.py -v
 - **Citation Verification:** Hallucination prevention protocols
 
 ### Human Escalation
+
 Automatic attorney alert when:
 - Contract value > $500,000
 - Criminal matter detected
 - Statute of limitations < 30 days
 - Cross-border jurisdiction
 - Confidence score < 0.75
-
----
-
-## 📊 Benchmarks
-
-| Task | Traditional | LexPilot | Improvement |
-|------|-------------|----------|-------------|
-| Contract Review (50 pages) | 4-6 hours | 15 minutes | **24x faster** |
-| Legal Research Memo | 8-12 hours | 30 minutes | **20x faster** |
-| NDA Drafting | 2-3 hours | 2 minutes | **90x faster** |
-| Invoice Generation | 1-2 hours | 30 seconds | **120x faster** |
-
-*Based on internal testing with 100+ sample documents.*
 
 ---
 
@@ -432,11 +423,12 @@ Automatic attorney alert when:
 
 ## 🤝 Contributing
 
-We welcome contributions! See our [Contributing Guide](CONTRIBUTING.md) for details.
+We welcome contributions!
 
 ```bash
 # Fork and clone
 git clone https://github.com/daniellopez882/Legal-Assistant-Agent-with-MCP.git
+cd "MCP LEGAL ASSISTANT AGENT"
 
 # Create branch
 git checkout -b feature/amazing-feature
