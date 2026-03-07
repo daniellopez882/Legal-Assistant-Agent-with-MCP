@@ -2,7 +2,7 @@
 
 > AI-powered legal research and drafting assistant for law firms  
 > **Stack:** LangGraph + CrewAI + LangChain + Pinecone + MCP + FastAPI  
-> **Author:** Ismail Sajid — Agentic AI Engineer
+> **Author:** Daniel Lopez — Agentic AI Engineer
 
 ---
 
