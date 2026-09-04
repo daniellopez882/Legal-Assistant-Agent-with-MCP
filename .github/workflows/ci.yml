@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-asyncio pytest-cov ruff bandit
+
+      - name: Ruff lint
+        run: ruff check . --output-format=github
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Tests
+        # No credentials are provided on purpose. The suite is hermetic: a fake
+        # chat model is installed session-wide in tests/conftest.py, so no test
+        # can reach a real provider. Before that seam existed, six API tests
+        # made live calls and failed with 401.
+        env:
+          ENVIRONMENT: testing
+        run: pytest --no-cov -q
+
+      - name: The suite must not make live model calls
+        # Guards the property above. If the fake is removed, agents fall back to
+        # real clients and the suite starts costing money.
+        env:
+          ENVIRONMENT: testing
+        run: |
+          python - <<'PY'
+          import pathlib, sys
+          conftest = pathlib.Path("tests/conftest.py").read_text(encoding="utf-8")
+          for needle in ("set_model_factory", "autouse=True"):
+              if needle not in conftest:
+                  print(f"::error::tests/conftest.py no longer installs the fake model ({needle} missing)")
+                  sys.exit(1)
+          agents = pathlib.Path("src/agents")
+          bad = [p.name for p in agents.glob("*.py")
+                 if "ChatOpenAI(" in p.read_text(encoding="utf-8")
+                 or "ChatAnthropic(" in p.read_text(encoding="utf-8")]
+          if bad:
+              print(f"::error::agents building clients directly, bypassing src.llm: {bad}")
+              sys.exit(1)
+          print("hermetic")
+          PY
+
+      - name: Bandit
+        run: bandit -r src -ll -f screen
+        continue-on-error: true
+
+  docker:
+    name: Docker build
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: legal-assistant:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
