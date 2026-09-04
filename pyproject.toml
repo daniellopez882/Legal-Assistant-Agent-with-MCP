@@ -70,7 +70,21 @@ target-version = ["py310", "py311", "py312"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-select = ["E", "F", "I", "N", "W"]
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "B", "UP", "S", "C4"]
+ignore = [
+    "E501",   # line length is the formatter's job
+    "B008",   # FastAPI's Depends() in a default is the documented idiom
+    "N818",   # existing exception names are part of the public surface
+    "UP042",  # StrEnum is 3.11+; this project targets 3.10
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "B017"]
+"main.py" = ["T201"]
+
+[tool.ruff.format]
+quote-style = "double"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

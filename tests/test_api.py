@@ -1,26 +1,22 @@
 """
 Comprehensive tests for MCP Legal Assistant API.
 """
-import pytest
-import asyncio
-from datetime import date, timedelta
-from typing import Dict, Any
 
+from datetime import date, timedelta
+
+import pytest
 from fastapi.testclient import TestClient
 
-from src.server.server import create_app
 from src.models import (
-    MatterInfo,
     FirmProfile,
-    ContractReviewerInput,
-    CaseResearcherInput,
-    DocumentDrafterInput,
+    MatterInfo,
 )
-
+from src.server.server import create_app
 
 # ============================================================
 # FIXTURES
 # ============================================================
+
 
 @pytest.fixture
 def client():
@@ -57,6 +53,7 @@ def sample_firm() -> FirmProfile:
 # HEALTH CHECK TESTS
 # ============================================================
 
+
 class TestHealthCheck:
     """Test health check endpoints."""
 
@@ -82,6 +79,7 @@ class TestHealthCheck:
 # CONTRACT REVIEW TESTS
 # ============================================================
 
+
 class TestContractReview:
     """Test contract review functionality."""
 
@@ -89,9 +87,9 @@ class TestContractReview:
         """Test basic contract review."""
         contract_text = """
         EMPLOYMENT AGREEMENT
-        
+
         This Agreement is between Test Corp ("Company") and John Doe ("Employee").
-        
+
         1. NON-COMPETE: Employee agrees not to compete for 5 years after termination.
         2. CONFIDENTIALITY: Employee shall keep all information confidential indefinitely.
         3. TERMINATION: Company may terminate with 5 days notice.
@@ -105,7 +103,7 @@ class TestContractReview:
                 "matter_id": "TEST-001",
                 "client_name": "John Doe",
                 "jurisdiction": "California",
-            }
+            },
         )
 
         assert response.status_code == 200
@@ -122,7 +120,7 @@ class TestContractReview:
                 "matter_id": "TEST-001",
                 "client_name": "Test Client",
                 "jurisdiction": "Delaware",
-            }
+            },
         )
 
         assert response.status_code == 422  # Validation error
@@ -131,6 +129,7 @@ class TestContractReview:
 # ============================================================
 # CASE RESEARCH TESTS
 # ============================================================
+
 
 class TestCaseResearch:
     """Test case research functionality."""
@@ -145,7 +144,7 @@ class TestCaseResearch:
                 "practice_area": "Contract",
                 "matter_id": "TEST-001",
                 "client_name": "Test Client",
-            }
+            },
         )
 
         assert response.status_code == 200
@@ -161,7 +160,7 @@ class TestCaseResearch:
                 "practice_area": "Contract",
                 "matter_id": "TEST-001",
                 "client_name": "Test Client",
-            }
+            },
         )
 
         assert response.status_code == 422
@@ -170,6 +169,7 @@ class TestCaseResearch:
 # ============================================================
 # DOCUMENT DRAFTING TESTS
 # ============================================================
+
 
 class TestDocumentDrafting:
     """Test document drafting functionality."""
@@ -191,7 +191,7 @@ class TestDocumentDrafting:
                 "jurisdiction": "Delaware",
                 "matter_id": "TEST-001",
                 "client_name": "Test Corp",
-            }
+            },
         )
 
         assert response.status_code == 200
@@ -207,7 +207,7 @@ class TestDocumentDrafting:
                 "jurisdiction": "Delaware",
                 "matter_id": "TEST-001",
                 "client_name": "Test Client",
-            }
+            },
         )
 
         assert response.status_code == 422
@@ -216,6 +216,7 @@ class TestDocumentDrafting:
 # ============================================================
 # DEADLINE TRACKING TESTS
 # ============================================================
+
 
 class TestDeadlineTracking:
     """Test deadline tracking functionality."""
@@ -228,7 +229,7 @@ class TestDeadlineTracking:
                 "firm_id": "TEST-FIRM",
                 "matter_ids": ["TEST-001"],
                 "generate_report": True,
-            }
+            },
         )
 
         assert response.status_code == 200
@@ -239,6 +240,7 @@ class TestDeadlineTracking:
 # ============================================================
 # BILLING TESTS
 # ============================================================
+
 
 class TestBilling:
     """Test billing functionality."""
@@ -254,7 +256,7 @@ class TestBilling:
                 "client_name": "Test Client",
                 "include_expenses": True,
                 "generate_invoice": True,
-            }
+            },
         )
 
         assert response.status_code == 200
@@ -265,6 +267,7 @@ class TestBilling:
 # ============================================================
 # ORCHESTRATOR TESTS
 # ============================================================
+
 
 class TestOrchestrator:
     """Test orchestrator functionality."""
@@ -278,7 +281,7 @@ class TestOrchestrator:
                 "matter_id": "TEST-001",
                 "client_name": "Test Client",
                 "jurisdiction": "Delaware",
-            }
+            },
         )
 
         assert response.status_code == 200
@@ -294,7 +297,7 @@ class TestOrchestrator:
                 "matter_id": "TEST-002",
                 "client_name": "Test Client",
                 "jurisdiction": "Texas",
-            }
+            },
         )
 
         assert response.status_code == 200
@@ -305,6 +308,7 @@ class TestOrchestrator:
 # ============================================================
 # TEMPLATE TESTS
 # ============================================================
+
 
 class TestTemplates:
     """Test template listing."""
@@ -321,6 +325,7 @@ class TestTemplates:
 # ============================================================
 # ERROR HANDLING TESTS
 # ============================================================
+
 
 class TestErrorHandling:
     """Test error handling."""
@@ -340,6 +345,7 @@ class TestErrorHandling:
 # INTEGRATION TESTS
 # ============================================================
 
+
 class TestIntegration:
     """Integration tests for complete workflows."""
 
@@ -355,7 +361,7 @@ class TestIntegration:
                 "matter_id": "INT-001",
                 "client_name": "Integration Test Client",
                 "jurisdiction": "New York",
-            }
+            },
         )
         assert review_response.status_code == 200
 
@@ -368,7 +374,7 @@ class TestIntegration:
                 "jurisdiction": "New York",
                 "matter_id": "INT-001",
                 "client_name": "Integration Test Client",
-            }
+            },
         )
         assert draft_response.status_code == 200
 
@@ -378,7 +384,7 @@ class TestIntegration:
             json={
                 "firm_id": "TEST-FIRM",
                 "matter_ids": ["INT-001"],
-            }
+            },
         )
         assert deadline_response.status_code == 200
 
@@ -386,6 +392,7 @@ class TestIntegration:
 # ============================================================
 # PERFORMANCE TESTS
 # ============================================================
+
 
 class TestPerformance:
     """Performance tests."""
