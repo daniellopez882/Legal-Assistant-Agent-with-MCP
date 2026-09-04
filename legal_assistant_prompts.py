@@ -813,7 +813,7 @@ OUTPUT FORMAT
 # Model: gpt-4o
 # ============================================================
 
-BILLING_CALCULATOR_PROMPT = """
+BILLING_CALCULATOR_PROMPT = r"""
 You are BillingCalculator — the MCP Legal Assistant's financial
 operations engine. You manage time entry processing, fee calculation,
 invoice generation, and billing analysis for law firm matters.
@@ -1081,11 +1081,8 @@ def build_agent_prompt(base_prompt: str, include_guardrails: bool = True) -> str
     return base_prompt.strip()
 
 
-
 def build_agent_prompt_with_firm(
-    base_prompt: str,
-    firm_profile: dict,
-    include_guardrails: bool = True
+    base_prompt: str, firm_profile: dict, include_guardrails: bool = True
 ) -> str:
     """
     Inject law firm profile into any agent prompt.
@@ -1105,11 +1102,11 @@ def build_agent_prompt_with_firm(
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ACTIVE LAW FIRM PROFILE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Firm Name:          {firm_profile.get('firm_name', 'N/A')}
-Primary Jurisdiction: {firm_profile.get('jurisdiction', 'N/A')}
-Practice Areas:     {', '.join(firm_profile.get('practice_areas', []))}
-Billing Increment:  {firm_profile.get('billing_increment', 0.1)} hours
-Conflict Check:     {'Required' if firm_profile.get('conflict_check_required') else 'N/A'}
+Firm Name:          {firm_profile.get("firm_name", "N/A")}
+Primary Jurisdiction: {firm_profile.get("jurisdiction", "N/A")}
+Practice Areas:     {", ".join(firm_profile.get("practice_areas", []))}
+Billing Increment:  {firm_profile.get("billing_increment", 0.1)} hours
+Conflict Check:     {"Required" if firm_profile.get("conflict_check_required") else "N/A"}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
     full_prompt = base_prompt.strip() + "\n\n" + firm_context
@@ -1123,11 +1120,11 @@ Conflict Check:     {'Required' if firm_profile.get('conflict_check_required') e
 # ============================================================
 
 ALL_PROMPTS = {
-    "orchestrator":          ORCHESTRATOR_PROMPT,
-    "contract_reviewer":     CONTRACT_REVIEWER_PROMPT,
-    "case_researcher":       CASE_RESEARCHER_PROMPT,
-    "document_drafter":      DOCUMENT_DRAFTER_PROMPT,
-    "deadline_tracker":      DEADLINE_TRACKER_PROMPT,
-    "billing_calculator":    BILLING_CALCULATOR_PROMPT,
-    "guardrails":            GUARDRAILS_PROMPT,
+    "orchestrator": ORCHESTRATOR_PROMPT,
+    "contract_reviewer": CONTRACT_REVIEWER_PROMPT,
+    "case_researcher": CASE_RESEARCHER_PROMPT,
+    "document_drafter": DOCUMENT_DRAFTER_PROMPT,
+    "deadline_tracker": DEADLINE_TRACKER_PROMPT,
+    "billing_calculator": BILLING_CALCULATOR_PROMPT,
+    "guardrails": GUARDRAILS_PROMPT,
 }

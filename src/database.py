@@ -2,13 +2,26 @@
 Database models and connection management for PostgreSQL.
 Optional - the system works without it for basic functionality.
 """
+
 import logging
-from typing import Optional, AsyncGenerator
-from datetime import datetime, date
-from sqlalchemy import Column, String, Integer, Float, DateTime, Text, Boolean, ForeignKey, Date, JSON
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from collections.abc import AsyncGenerator
+from datetime import date, datetime
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.future import select
+from sqlalchemy.orm import declarative_base, relationship
 
 from src.config import get_settings
 
@@ -21,8 +34,10 @@ Base = declarative_base()
 # DATABASE MODELS
 # ============================================================
 
+
 class Matter(Base):
     """Legal matter/case database model."""
+
     __tablename__ = "matters"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -46,6 +61,7 @@ class Matter(Base):
 
 class Document(Base):
     """Document database model."""
+
     __tablename__ = "documents"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -65,6 +81,7 @@ class Document(Base):
 
 class Deadline(Base):
     """Deadline database model."""
+
     __tablename__ = "deadlines"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -85,6 +102,7 @@ class Deadline(Base):
 
 class TimeEntry(Base):
     """Time entry database model for billing."""
+
     __tablename__ = "time_entries"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -107,6 +125,7 @@ class TimeEntry(Base):
 
 class Invoice(Base):
     """Invoice database model."""
+
     __tablename__ = "invoices"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -132,6 +151,7 @@ class Invoice(Base):
 
 class User(Base):
     """User database model for authentication."""
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -148,6 +168,7 @@ class User(Base):
 
 class Firm(Base):
     """Law firm database model."""
+
     __tablename__ = "firms"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -164,12 +185,13 @@ class Firm(Base):
 # DATABASE CONNECTION
 # ============================================================
 
+
 class DatabaseManager:
     """
     Async database connection manager.
     """
 
-    def __init__(self, database_url: Optional[str] = None):
+    def __init__(self, database_url: str | None = None):
         """
         Initialize database manager.
 
@@ -181,9 +203,7 @@ class DatabaseManager:
 
         # Convert sync URL to async if needed
         if self.database_url and not self.database_url.startswith("postgresql+asyncpg"):
-            self.database_url = self.database_url.replace(
-                "postgresql://", "postgresql+asyncpg://"
-            )
+            self.database_url = self.database_url.replace("postgresql://", "postgresql+asyncpg://")
 
         self.engine = None
         self.async_session_maker = None
@@ -253,15 +273,13 @@ class DatabaseManager:
     # MATTER OPERATIONS
     # ============================================================
 
-    async def get_matter(self, matter_id: str) -> Optional[Matter]:
+    async def get_matter(self, matter_id: str) -> Matter | None:
         """Get matter by ID."""
         if not self.async_session_maker:
             return None
 
         async with self.async_session_maker() as session:
-            result = await session.execute(
-                select(Matter).where(Matter.matter_id == matter_id)
-            )
+            result = await session.execute(select(Matter).where(Matter.matter_id == matter_id))
             return result.scalar_one_or_none()
 
     async def create_matter(self, matter_data: dict) -> Matter:
@@ -273,7 +291,7 @@ class DatabaseManager:
             await session.refresh(matter)
             return matter
 
-    async def update_matter(self, matter_id: str, updates: dict) -> Optional[Matter]:
+    async def update_matter(self, matter_id: str, updates: dict) -> Matter | None:
         """Update matter."""
         async with self.async_session_maker() as session:
             matter = await self.get_matter(matter_id)
@@ -305,9 +323,7 @@ class DatabaseManager:
 
         async with self.async_session_maker() as session:
             result = await session.execute(
-                select(Deadline)
-                .where(Deadline.matter_id == matter_id)
-                .order_by(Deadline.due_date)
+                select(Deadline).where(Deadline.matter_id == matter_id).order_by(Deadline.due_date)
             )
             return result.scalars().all()
 
@@ -358,7 +374,7 @@ class DatabaseManager:
 # GLOBAL INSTANCE
 # ============================================================
 
-_db_manager: Optional[DatabaseManager] = None
+_db_manager: DatabaseManager | None = None
 
 
 def get_database_manager() -> DatabaseManager:

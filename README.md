@@ -225,11 +225,13 @@ The orchestrator routes tasks to the right agent automatically:
 from src.orchestrator import LegalOrchestrator
 
 orchestrator = LegalOrchestrator()
-result = await orchestrator.process({
-    "task": "Review this employment agreement for non-compete issues",
-    "matter_id": "M-001",
-    "jurisdiction": "California"
-})
+result = await orchestrator.process(
+    {
+        "task": "Review this employment agreement for non-compete issues",
+        "matter_id": "M-001",
+        "jurisdiction": "California",
+    }
+)
 ```
 
 ---
@@ -334,8 +336,8 @@ async with ClientSession() as session:
             "document_name": "Agreement.pdf",
             "matter_id": "M-001",
             "client_name": "Client",
-            "jurisdiction": "Delaware"
-        }
+            "jurisdiction": "Delaware",
+        },
     )
 ```
 
@@ -345,16 +347,14 @@ async with ClientSession() as session:
 from src.vector_store import create_vector_store
 
 vector_store = create_vector_store(
-    api_key="your-pinecone-key",
-    environment="us-west-2",
-    index_name="legal-assistant-index"
+    api_key="your-pinecone-key", environment="us-west-2", index_name="legal-assistant-index"
 )
 
 # Search firm's knowledge base
 results = vector_store.search(
     query="non-compete enforceability in California",
     filter={"practice_area": "Employment"},
-    top_k=5
+    top_k=5,
 )
 ```
 

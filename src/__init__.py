@@ -1,6 +1,7 @@
 """
 MCP Legal Assistant Source Package
 """
+
 import sys
 from pathlib import Path
 
