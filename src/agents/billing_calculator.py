@@ -1,25 +1,26 @@
 """
 Billing Calculator Agent - Legal fee calculation and invoice generation.
 """
+
+import json
 import logging
 import uuid
-import json
-from typing import Optional, List, Dict, Any
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
+from typing import Any
 
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 
+from src.config import get_settings
+from src.llm import get_chat_model
 from src.models import (
     BillingCalculatorInput,
     BillingResult,
-    TimeEntry,
     ExpenseEntry,
-    TrustAccount,
     MatterBudget,
+    TimeEntry,
+    TrustAccount,
 )
-from src.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -28,17 +29,17 @@ class BillingCalculatorAgent:
     """
     AI agent for legal billing operations.
     Processes time entries, calculates fees, and generates invoices.
-    
+
     Legal billing requires precision - every dollar must be properly attributed.
     """
-    
+
     # Standard billing increments
     BILLING_INCREMENTS = {
         0.1: "6 minutes",
         0.25: "15 minutes",
         0.5: "30 minutes",
     }
-    
+
     # Ethics compliance rules
     ETHICS_FLAGS = {
         "overbilling": "More than 24 hours billed in a single day",
@@ -48,26 +49,25 @@ class BillingCalculatorAgent:
         "fee_splitting": "Fee splitting with non-lawyers detected",
         "interest": "Interest/late fees - verify fee agreement authorizes",
     }
-    
-    def __init__(self, model: Optional[str] = None):
+
+    def __init__(self, model: str | None = None):
         """
         Initialize Billing Calculator agent.
-        
+
         Args:
             model: Model to use (defaults to GPT-4o)
         """
         settings = get_settings()
         self.model_name = model or settings.billing_calculator_model
-        
-        self.llm = ChatOpenAI(
-            model=self.model_name,
-            api_key=settings.openai_api_key,
+
+        self.llm = get_chat_model(
+            self.model_name,
             temperature=0.1,
-            max_tokens=4096,
+            max_tokens=8192,
         )
-        
+
         self.prompt = self._build_prompt()
-    
+
     def _build_prompt(self) -> ChatPromptTemplate:
         """Build the billing calculation prompt."""
         system_prompt = """
@@ -152,18 +152,20 @@ Expenses: {expenses}
 Matter Info: {matter_info}
 Billing Period: {billing_period}
 """
-        
-        return ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
-        ])
-    
+
+        return ChatPromptTemplate.from_messages(
+            [
+                ("system", system_prompt),
+            ]
+        )
+
     async def calculate_billing(self, input_data: BillingCalculatorInput) -> BillingResult:
         """
         Calculate billing and generate invoice.
-        
+
         Args:
             input_data: Billing input
-            
+
         Returns:
             BillingResult with invoice
         """
@@ -172,40 +174,42 @@ Billing Period: {billing_period}
                 f"Calculating billing for matter {input_data.matter_id}: "
                 f"{input_data.billing_period_start} to {input_data.billing_period_end}"
             )
-            
+
             # Get time entries and expenses (from database in production)
             time_entries = self._get_time_entries(input_data)
             expenses = self._get_expenses(input_data) if input_data.include_expenses else []
-            
+
             # Get matter info
             matter_info = self._get_matter_info(input_data.matter_id)
-            
+
             # Build the chain
             chain = self.prompt | self.llm | JsonOutputParser()
-            
+
             # Execute billing calculation
-            response = await chain.ainvoke({
-                "time_entries": self._format_time_entries(time_entries),
-                "expenses": self._format_expenses(expenses),
-                "matter_info": json.dumps(matter_info, indent=2),
-                "billing_period": f"{input_data.billing_period_start} to {input_data.billing_period_end}",
-            })
-            
+            response = await chain.ainvoke(
+                {
+                    "time_entries": self._format_time_entries(time_entries),
+                    "expenses": self._format_expenses(expenses),
+                    "matter_info": json.dumps(matter_info, indent=2),
+                    "billing_period": f"{input_data.billing_period_start} to {input_data.billing_period_end}",
+                }
+            )
+
             # Parse and validate response
             result = self._parse_result(response, input_data, time_entries, expenses)
-            
+
             logger.info(
                 f"Billing complete: {result.total_hours} hours, "
                 f"{result.total_fees} fees, {result.total_invoice_amount} total"
             )
-            
+
             return result
-            
+
         except Exception as e:
             logger.error(f"Billing calculation failed: {e}")
             raise
-    
-    def _get_time_entries(self, input_data: BillingCalculatorInput) -> List[TimeEntry]:
+
+    def _get_time_entries(self, input_data: BillingCalculatorInput) -> list[TimeEntry]:
         """
         Get time entries from database.
         In production, this queries PostgreSQL.
@@ -220,7 +224,7 @@ Billing Period: {billing_period}
                 matter_id=input_data.matter_id,
                 hours=2.5,
                 description="Reviewed and analyzed plaintiff's motion for summary judgment; "
-                           "prepared outline for response; researched applicable case law",
+                "prepared outline for response; researched applicable case law",
                 billing_code="LIT-001",
                 billable=True,
                 rate=450.0,
@@ -233,14 +237,14 @@ Billing Period: {billing_period}
                 matter_id=input_data.matter_id,
                 hours=1.5,
                 description="Telephone conference with client re: settlement parameters; "
-                           "discussed negotiation strategy and authority",
+                "discussed negotiation strategy and authority",
                 billing_code="LIT-002",
                 billable=True,
                 rate=350.0,
             ),
         ]
-    
-    def _get_expenses(self, input_data: BillingCalculatorInput) -> List[ExpenseEntry]:
+
+    def _get_expenses(self, input_data: BillingCalculatorInput) -> list[ExpenseEntry]:
         """
         Get expenses from database.
         In production, this queries PostgreSQL.
@@ -262,8 +266,8 @@ Billing Period: {billing_period}
                 matter_id=input_data.matter_id,
             ),
         ]
-    
-    def _get_matter_info(self, matter_id: str) -> Dict[str, Any]:
+
+    def _get_matter_info(self, matter_id: str) -> dict[str, Any]:
         """
         Get matter information from database.
         In production, this queries PostgreSQL.
@@ -284,21 +288,21 @@ Billing Period: {billing_period}
             "budget": 50000.0,
             "billed_to_date": 15000.0,
         }
-    
-    def _format_time_entries(self, entries: List[TimeEntry]) -> str:
+
+    def _format_time_entries(self, entries: list[TimeEntry]) -> str:
         """Format time entries for the prompt."""
         return json.dumps([e.model_dump() for e in entries], indent=2, default=str)
-    
-    def _format_expenses(self, entries: List[ExpenseEntry]) -> str:
+
+    def _format_expenses(self, entries: list[ExpenseEntry]) -> str:
         """Format expenses for the prompt."""
         return json.dumps([e.model_dump() for e in entries], indent=2, default=str)
-    
+
     def _parse_result(
         self,
         response: dict,
         input_data: BillingCalculatorInput,
-        time_entries: List[TimeEntry],
-        expenses: List[ExpenseEntry],
+        time_entries: list[TimeEntry],
+        expenses: list[ExpenseEntry],
     ) -> BillingResult:
         """Parse and validate the LLM response."""
         # Parse trust account
@@ -311,7 +315,7 @@ Billing Period: {billing_period}
                 balance_after=float(trust_data.get("balance_after", 0)),
                 replenishment_requested=trust_data.get("replenishment_requested", False),
             )
-        
+
         # Parse matter budget
         budget_data = response.get("matter_budget", {})
         matter_budget = None
@@ -323,11 +327,11 @@ Billing Period: {billing_period}
                 projected_at_completion=budget_data.get("projected_at_completion"),
                 over_budget_flag=budget_data.get("over_budget_flag", False),
             )
-        
+
         return BillingResult(
             billing_id=response.get("billing_id", str(uuid.uuid4())[:8]),
             matter_id=input_data.matter_id,
-            client_name=response.get("client_name", input_data.client_name),
+            client_name=(response.get("client_name") or input_data.client_name or "Unknown Client"),
             billing_period={
                 "from": input_data.billing_period_start,
                 "to": input_data.billing_period_end,
@@ -348,21 +352,21 @@ Billing Period: {billing_period}
             ready_to_send=response.get("ready_to_send", False),
             requires_attorney_approval=True,
         )
-    
+
     def _generate_invoice_html(
         self,
         result: BillingResult,
-        time_entries: List[TimeEntry],
-        expenses: List[ExpenseEntry],
+        time_entries: list[TimeEntry],
+        expenses: list[ExpenseEntry],
     ) -> str:
         """
         Generate HTML invoice.
-        
+
         Args:
             result: Billing result
             time_entries: Time entries
             expenses: Expenses
-            
+
         Returns:
             HTML invoice string
         """
@@ -387,9 +391,9 @@ Billing Period: {billing_period}
         <p><strong>Invoice Number:</strong> {result.invoice_number}</p>
         <p><strong>Matter:</strong> {result.matter_id}</p>
         <p><strong>Client:</strong> {result.client_name}</p>
-        <p><strong>Billing Period:</strong> {result.billing_period['from']} to {result.billing_period['to']}</p>
+        <p><strong>Billing Period:</strong> {result.billing_period["from"]} to {result.billing_period["to"]}</p>
     </div>
-    
+
     <h2>Time Entries</h2>
     <table>
         <tr>
@@ -401,7 +405,7 @@ Billing Period: {billing_period}
             <th>Amount</th>
         </tr>
 """
-        
+
         for entry in time_entries:
             amount = entry.hours * (entry.rate or 0)
             html += f"""
@@ -414,10 +418,10 @@ Billing Period: {billing_period}
             <td>${amount:.2f}</td>
         </tr>
 """
-        
+
         html += """
     </table>
-    
+
     <h2>Expenses</h2>
     <table>
         <tr>
@@ -426,7 +430,7 @@ Billing Period: {billing_period}
             <th>Amount</th>
         </tr>
 """
-        
+
         for expense in expenses:
             html += f"""
         <tr>
@@ -435,16 +439,16 @@ Billing Period: {billing_period}
             <td>${expense.amount:.2f}</td>
         </tr>
 """
-        
+
         html += f"""
     </table>
-    
+
     <div class="total">
         <p><strong>Total Fees:</strong> {result.total_fees}</p>
         <p><strong>Total Expenses:</strong> {result.total_expenses}</p>
         <p><strong>Total Amount Due:</strong> {result.total_invoice_amount}</p>
     </div>
-    
+
     <div class="footer">
         <p>Payment terms: Net 30 days</p>
         <p>Please make checks payable to: [Firm Name]</p>
@@ -453,46 +457,48 @@ Billing Period: {billing_period}
 </body>
 </html>
 """
-        
+
         return html
-    
+
     def calculate_billing_sync(
         self,
         input_data: BillingCalculatorInput,
     ) -> BillingResult:
         """
         Synchronous version of billing calculation.
-        
+
         Args:
             input_data: Billing input
-            
+
         Returns:
             BillingResult with invoice
         """
         import asyncio
+
         return asyncio.get_event_loop().run_until_complete(self.calculate_billing(input_data))
-    
+
     def round_to_increment(self, hours: float, increment: float = 0.1) -> float:
         """
         Round time to billing increment.
-        
+
         Args:
             hours: Time in hours
             increment: Billing increment (default 0.1 = 6 minutes)
-            
+
         Returns:
             Rounded hours
         """
         import math
+
         return math.ceil(hours / increment) * increment
-    
-    def validate_time_description(self, description: str) -> Dict[str, Any]:
+
+    def validate_time_description(self, description: str) -> dict[str, Any]:
         """
         Validate time entry description quality.
-        
+
         Args:
             description: Time entry description
-            
+
         Returns:
             Validation result
         """
@@ -503,19 +509,19 @@ Billing Period: {billing_period}
             r"^\s*review\s+documents\s*$",
             r"^\s*emails?\s*$",
         ]
-        
+
         import re
-        
+
         is_vague = False
         for pattern in vague_patterns:
             if re.match(pattern, description.lower()):
                 is_vague = True
                 break
-        
+
         # Check for block billing (multiple activities)
         activities = description.count(";") + description.count(",")
         is_block_billing = activities >= 2 and len(description) > 100
-        
+
         return {
             "is_vague": is_vague,
             "is_block_billing": is_block_billing,
@@ -524,5 +530,7 @@ Billing Period: {billing_period}
                 "Be more specific about the task performed",
                 "Include the purpose or outcome of the work",
                 "Identify the specific documents or parties involved",
-            ] if is_vague else [],
+            ]
+            if is_vague
+            else [],
         }

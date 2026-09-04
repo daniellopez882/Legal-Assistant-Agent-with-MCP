@@ -1,24 +1,25 @@
 """
 Deadline Tracker Agent - Critical deadline management for legal matters.
 """
+
 import logging
 import uuid
-from typing import Optional, List, Dict, Any
-from datetime import datetime, date, timedelta
+from datetime import date, datetime, timedelta
+from typing import Any
 
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 
+from src.config import get_settings
+from src.llm import get_chat_model
 from src.models import (
-    DeadlineTrackerInput,
-    DeadlineReport,
+    AlertStatus,
     DeadlineInfo,
+    DeadlineReport,
+    DeadlineTrackerInput,
     MatterDeadlines,
     UrgencyLevel,
-    AlertStatus,
 )
-from src.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +28,10 @@ class DeadlineTrackerAgent:
     """
     AI agent for legal deadline tracking and management.
     Monitors court dates, filing deadlines, and statute of limitations.
-    
+
     ZERO TOLERANCE: A missed legal deadline can result in malpractice liability.
     """
-    
+
     # Common statute of limitations periods (in years) - varies by jurisdiction
     SOL_PERIODS = {
         "contract": {"default": 4, "oral": 2, "written": 6},
@@ -41,7 +42,7 @@ class DeadlineTrackerAgent:
         "property_damage": {"default": 3},
         "fraud": {"default": 4, "discovery_rule": True},
     }
-    
+
     # Court rule calculations
     COURT_RULES = {
         "federal": {
@@ -73,26 +74,25 @@ class DeadlineTrackerAgent:
             "weekend_holiday_extension": True,
         },
     }
-    
-    def __init__(self, model: Optional[str] = None):
+
+    def __init__(self, model: str | None = None):
         """
         Initialize Deadline Tracker agent.
-        
+
         Args:
             model: Model to use (defaults to GPT-4o)
         """
         settings = get_settings()
         self.model_name = model or settings.deadline_tracker_model
-        
-        self.llm = ChatOpenAI(
-            model=self.model_name,
-            api_key=settings.openai_api_key,
+
+        self.llm = get_chat_model(
+            self.model_name,
             temperature=0.1,
-            max_tokens=4096,
+            max_tokens=8192,
         )
-        
+
         self.prompt = self._build_prompt()
-    
+
     def _build_prompt(self) -> ChatPromptTemplate:
         """Build the deadline tracking prompt."""
         system_prompt = """
@@ -183,58 +183,62 @@ MATTERS DATA:
 
 Generate the daily docket report for firm_id: {firm_id}
 """
-        
-        return ChatPromptTemplate.from_messages([
-            ("system", system_prompt),
-        ])
-    
+
+        return ChatPromptTemplate.from_messages(
+            [
+                ("system", system_prompt),
+            ]
+        )
+
     async def get_deadlines(self, input_data: DeadlineTrackerInput) -> DeadlineReport:
         """
         Get deadline report for firm/matters.
-        
+
         Args:
             input_data: Deadline tracking input
-            
+
         Returns:
             DeadlineReport with all deadlines
         """
         try:
             logger.info(f"Generating deadline report for firm: {input_data.firm_id}")
-            
+
             # Get matters data (in production, this would come from database)
             matters_data = self._get_matters_data(input_data)
-            
+
             # Build the chain
             chain = self.prompt | self.llm | JsonOutputParser()
-            
+
             # Execute deadline calculation
-            response = await chain.ainvoke({
-                "firm_id": input_data.firm_id,
-                "matters_data": self._format_matters_data(matters_data),
-            })
-            
+            response = await chain.ainvoke(
+                {
+                    "firm_id": input_data.firm_id,
+                    "matters_data": self._format_matters_data(matters_data),
+                }
+            )
+
             # Parse and validate response
             result = self._parse_result(response, input_data)
-            
+
             # Generate alerts for critical deadlines
             await self._generate_alerts(result)
-            
+
             logger.info(
                 f"Deadline report complete: {len(result.deadlines_today)} today, "
                 f"{len(result.overdue_deadlines)} overdue"
             )
-            
+
             return result
-            
+
         except Exception as e:
             logger.error(f"Deadline tracking failed: {e}")
             raise
-    
-    def _get_matters_data(self, input_data: DeadlineTrackerInput) -> List[Dict[str, Any]]:
+
+    def _get_matters_data(self, input_data: DeadlineTrackerInput) -> list[dict[str, Any]]:
         """
         Get matters data from database.
         In production, this queries the PostgreSQL database.
-        
+
         For now, returns sample data structure.
         """
         # TODO: Implement database query
@@ -253,15 +257,16 @@ Generate the daily docket report for firm_id: {firm_id}
                         "category": "CRITICAL",
                         "court_rule": "FRCP 12(a)",
                     }
-                ]
+                ],
             }
         ]
-    
-    def _format_matters_data(self, matters_data: List[Dict[str, Any]]) -> str:
+
+    def _format_matters_data(self, matters_data: list[dict[str, Any]]) -> str:
         """Format matters data for the prompt."""
         import json
+
         return json.dumps(matters_data, indent=2, default=str)
-    
+
     def _parse_result(
         self,
         response: dict,
@@ -269,32 +274,45 @@ Generate the daily docket report for firm_id: {firm_id}
     ) -> DeadlineReport:
         """Parse and validate the LLM response."""
         today = date.today()
-        
+
         # Parse deadlines
-        def parse_deadlines(deadline_list: List[Dict]) -> List[DeadlineInfo]:
+        def parse_deadlines(deadline_list: list[dict]) -> list[DeadlineInfo]:
             deadlines = []
             for d in deadline_list:
+                raw_due_date = d.get("due_date", "")
                 try:
-                    due_date = datetime.strptime(d.get("due_date", ""), "%Y-%m-%d").date()
-                except:
-                    due_date = today
-                
+                    due_date = datetime.strptime(raw_due_date, "%Y-%m-%d").date()
+                except (ValueError, TypeError):
+                    # A bare `except:` here silently substituted *today* for any
+                    # unparseable date. In a deadline tracker that either invents
+                    # an urgent deadline or hides a real one, and it also
+                    # swallowed KeyboardInterrupt and SystemExit.
+                    #
+                    # An unparseable date is now skipped and reported, rather
+                    # than guessed at.
+                    logger.warning("Skipping deadline with unparseable due_date: %r", raw_due_date)
+                    continue
+
                 days_remaining = (due_date - today).days
-                
-                deadlines.append(DeadlineInfo(
-                    deadline_id=d.get("deadline_id", str(uuid.uuid4())[:8]),
-                    description=d.get("description", ""),
-                    due_date=due_date,
-                    days_remaining=days_remaining,
-                    urgency=UrgencyLevel(d.get("urgency", "IMPORTANT")),
-                    category=d.get("category", ""),
-                    court_rule_reference=d.get("court_rule_reference"),
-                    calculation_method=d.get("calculation_method", ""),
-                    alert_status=AlertStatus(d.get("alert_status", "NOT_SENT")),
-                    requires_attorney_confirmation=d.get("requires_attorney_confirmation", True),
-                ))
+
+                deadlines.append(
+                    DeadlineInfo(
+                        deadline_id=d.get("deadline_id", str(uuid.uuid4())[:8]),
+                        description=d.get("description", ""),
+                        due_date=due_date,
+                        days_remaining=days_remaining,
+                        urgency=UrgencyLevel(d.get("urgency", "IMPORTANT")),
+                        category=d.get("category", ""),
+                        court_rule_reference=d.get("court_rule_reference"),
+                        calculation_method=d.get("calculation_method", ""),
+                        alert_status=AlertStatus(d.get("alert_status", "NOT_SENT")),
+                        requires_attorney_confirmation=d.get(
+                            "requires_attorney_confirmation", True
+                        ),
+                    )
+                )
             return deadlines
-        
+
         # Parse matters
         matters = []
         for m in response.get("matters", []):
@@ -306,7 +324,7 @@ Generate the daily docket report for firm_id: {firm_id}
                 deadlines=parse_deadlines(m.get("deadlines", [])),
             )
             matters.append(matter_deadlines)
-        
+
         return DeadlineReport(
             docket_report_date=today,
             firm_id=input_data.firm_id,
@@ -319,39 +337,43 @@ Generate the daily docket report for firm_id: {firm_id}
             matters=matters,
             system_health=response.get("system_health", {}),
         )
-    
+
     async def _generate_alerts(self, report: DeadlineReport):
         """
         Generate and send alerts for critical deadlines.
-        
+
         In production, this sends emails, SMS (Twilio), and Slack notifications.
         """
         alerts_to_send = []
-        
+
         # Collect critical and overdue deadlines
         for deadline in report.overdue_deadlines:
-            alerts_to_send.append({
-                "deadline_id": deadline.deadline_id,
-                "type": "OVERDUE",
-                "description": deadline.description,
-                "due_date": str(deadline.due_date),
-                "urgency": "CRITICAL",
-            })
-        
+            alerts_to_send.append(
+                {
+                    "deadline_id": deadline.deadline_id,
+                    "type": "OVERDUE",
+                    "description": deadline.description,
+                    "due_date": str(deadline.due_date),
+                    "urgency": "CRITICAL",
+                }
+            )
+
         for deadline in report.deadlines_today:
             if deadline.urgency == UrgencyLevel.CRITICAL:
-                alerts_to_send.append({
-                    "deadline_id": deadline.deadline_id,
-                    "type": "DUE_TODAY",
-                    "description": deadline.description,
-                    "urgency": "CRITICAL",
-                })
-        
+                alerts_to_send.append(
+                    {
+                        "deadline_id": deadline.deadline_id,
+                        "type": "DUE_TODAY",
+                        "description": deadline.description,
+                        "urgency": "CRITICAL",
+                    }
+                )
+
         # TODO: Implement actual alert sending (email, SMS, Slack)
         if alerts_to_send:
             logger.warning(f"Generated {len(alerts_to_send)} critical alerts")
             report.alerts_sent = alerts_to_send
-    
+
     def calculate_deadline(
         self,
         trigger_date: date,
@@ -361,24 +383,24 @@ Generate the daily docket report for firm_id: {firm_id}
     ) -> date:
         """
         Calculate a deadline based on court rules.
-        
+
         Args:
             trigger_date: Date that triggers the deadline
             days: Number of days for deadline
             jurisdiction: Court jurisdiction (federal, texas, california, new_york)
             business_days: Whether to count business days only
-            
+
         Returns:
             Calculated deadline date
         """
         rules = self.COURT_RULES.get(jurisdiction.lower(), self.COURT_RULES["federal"])
-        
+
         # Start calculation
         if rules["exclude_trigger_day"]:
             calculated_date = trigger_date + timedelta(days=1)
         else:
             calculated_date = trigger_date
-        
+
         # Add the specified days
         if business_days:
             days_added = 0
@@ -390,53 +412,54 @@ Generate the daily docket report for firm_id: {firm_id}
             calculated_date = current
         else:
             calculated_date = trigger_date + timedelta(days=days)
-        
+
         # Apply weekend/holiday extension
         if rules.get("weekend_holiday_extension"):
             while calculated_date.weekday() >= 5:  # Saturday = 5, Sunday = 6
                 calculated_date += timedelta(days=1)
-        
+
         return calculated_date
-    
+
     def get_sol_period(
         self,
         claim_type: str,
         jurisdiction: str,
-        sub_type: Optional[str] = None,
+        sub_type: str | None = None,
     ) -> int:
         """
         Get statute of limitations period in years.
-        
+
         Args:
             claim_type: Type of claim (contract, personal_injury, etc.)
             jurisdiction: State or federal jurisdiction
             sub_type: Sub-type of claim (optional)
-            
+
         Returns:
             SOL period in years
         """
         claim_key = claim_type.lower().replace(" ", "_")
-        
+
         if claim_key not in self.SOL_PERIODS:
             logger.warning(f"Unknown claim type: {claim_type}")
             return 2  # Default
-        
+
         periods = self.SOL_PERIODS[claim_key]
-        
+
         if sub_type and sub_type in periods:
             return periods[sub_type]
-        
+
         return periods.get("default", 2)
-    
+
     def get_deadlines_sync(self, input_data: DeadlineTrackerInput) -> DeadlineReport:
         """
         Synchronous version of deadline tracking.
-        
+
         Args:
             input_data: Deadline tracking input
-            
+
         Returns:
             DeadlineReport with all deadlines
         """
         import asyncio
+
         return asyncio.get_event_loop().run_until_complete(self.get_deadlines(input_data))
