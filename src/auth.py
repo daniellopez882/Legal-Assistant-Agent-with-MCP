@@ -2,14 +2,15 @@
 JWT Authentication for MCP Legal Assistant API.
 Provides secure user authentication and authorization.
 """
+
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
+
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 from src.config import get_settings
 
@@ -37,24 +38,29 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 # MODELS
 # ============================================================
 
+
 class Token(BaseModel):
     """JWT token response."""
+
     access_token: str
     refresh_token: str
-    token_type: str = "bearer"
+    # noqa: S105 - this is the OAuth 2.0 response field name, not a credential
+    token_type: str = "bearer"  # noqa: S105
     expires_in: int
 
 
 class TokenData(BaseModel):
     """Decoded token data."""
-    user_id: Optional[str] = None
-    email: Optional[str] = None
-    role: Optional[str] = None
-    firm_id: Optional[str] = None
+
+    user_id: str | None = None
+    email: str | None = None
+    role: str | None = None
+    firm_id: str | None = None
 
 
 class UserCreate(BaseModel):
     """User creation request."""
+
     email: str
     password: str
     full_name: str
@@ -64,6 +70,7 @@ class UserCreate(BaseModel):
 
 class UserLogin(BaseModel):
     """User login request."""
+
     email: str
     password: str
 
@@ -71,6 +78,7 @@ class UserLogin(BaseModel):
 # ============================================================
 # PASSWORD HASHING
 # ============================================================
+
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify password against hash."""
@@ -86,7 +94,8 @@ def get_password_hash(password: str) -> str:
 # JWT TOKEN OPERATIONS
 # ============================================================
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     """
     Create JWT access token.
 
@@ -104,17 +113,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     else:
         expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 
-    to_encode.update({
-        "exp": expire,
-        "iat": datetime.utcnow(),
-        "type": "access"
-    })
+    to_encode.update({"exp": expire, "iat": datetime.utcnow(), "type": "access"})
 
-    encoded_jwt = jwt.encode(
-        to_encode,
-        settings.secret_key,
-        algorithm=ALGORITHM
-    )
+    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)
 
     return encoded_jwt
 
@@ -132,22 +133,14 @@ def create_refresh_token(data: dict) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
 
-    to_encode.update({
-        "exp": expire,
-        "iat": datetime.utcnow(),
-        "type": "refresh"
-    })
+    to_encode.update({"exp": expire, "iat": datetime.utcnow(), "type": "refresh"})
 
-    encoded_jwt = jwt.encode(
-        to_encode,
-        settings.secret_key,
-        algorithm=ALGORITHM
-    )
+    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=ALGORITHM)
 
     return encoded_jwt
 
 
-def decode_token(token: str) -> Optional[TokenData]:
+def decode_token(token: str) -> TokenData | None:
     """
     Decode and validate JWT token.
 
@@ -158,11 +151,7 @@ def decode_token(token: str) -> Optional[TokenData]:
         TokenData if valid, None otherwise
     """
     try:
-        payload = jwt.decode(
-            token,
-            settings.secret_key,
-            algorithms=[ALGORITHM]
-        )
+        payload = jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
 
         token_type = payload.get("type")
         if token_type not in ["access", "refresh"]:
@@ -176,12 +165,7 @@ def decode_token(token: str) -> Optional[TokenData]:
         if user_id is None:
             return None
 
-        return TokenData(
-            user_id=user_id,
-            email=email,
-            role=role,
-            firm_id=firm_id
-        )
+        return TokenData(user_id=user_id, email=email, role=role, firm_id=firm_id)
 
     except JWTError as e:
         logger.error(f"Token decode error: {e}")
@@ -192,7 +176,8 @@ def decode_token(token: str) -> Optional[TokenData]:
 # AUTHENTICATION DEPENDENCIES
 # ============================================================
 
-async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> Optional[TokenData]:
+
+async def get_current_user(token: str | None = Depends(oauth2_scheme)) -> TokenData | None:
     """
     Get current authenticated user from token.
 
@@ -209,7 +194,7 @@ async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> Opt
     return token_data
 
 
-async def require_auth(token: Optional[str] = Depends(oauth2_scheme)) -> TokenData:
+async def require_auth(token: str | None = Depends(oauth2_scheme)) -> TokenData:
     """
     Require authentication - raise 401 if not authenticated.
 
@@ -250,6 +235,7 @@ async def require_role(required_role: str):
     Returns:
         Dependency function
     """
+
     async def role_checker(token: TokenData = Depends(require_auth)) -> TokenData:
         if token.role != required_role and token.role != "admin":
             raise HTTPException(
@@ -264,6 +250,7 @@ async def require_role(required_role: str):
 # ============================================================
 # AUTH ROUTES
 # ============================================================
+
 
 def register_auth_routes(app):
     """

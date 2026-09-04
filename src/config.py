@@ -2,15 +2,14 @@
 Configuration management for MCP Legal Assistant.
 Loads environment variables and provides typed settings.
 """
-import os
-from typing import Optional
-from pydantic_settings import BaseSettings
+
 from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
-    
+
     # ============================================================
     # LLM API Keys
     # ============================================================
@@ -23,68 +22,72 @@ class Settings(BaseSettings):
     pinecone_api_key: str = Field(default="placeholder-pinecone-key", env="PINECONE_API_KEY")
     pinecone_environment: str = Field(default="us-west-2", env="PINECONE_ENVIRONMENT")
     pinecone_index_name: str = Field(default="legal-assistant-index", env="PINECONE_INDEX_NAME")
-    
+
     # ============================================================
     # Database (PostgreSQL)
     # ============================================================
-    database_url: str = Field(default="postgresql://localhost:5432/legal_assistant", env="DATABASE_URL")
-    database_async_url: Optional[str] = Field(default=None, env="DATABASE_ASYNC_URL")
-    
+    database_url: str = Field(
+        default="postgresql://localhost:5432/legal_assistant", env="DATABASE_URL"
+    )
+    database_async_url: str | None = Field(default=None, env="DATABASE_ASYNC_URL")
+
     # ============================================================
     # Google Calendar API (Deadline Tracker)
     # ============================================================
-    google_client_id: Optional[str] = Field(default=None, env="GOOGLE_CLIENT_ID")
-    google_client_secret: Optional[str] = Field(default=None, env="GOOGLE_CLIENT_SECRET")
+    google_client_id: str | None = Field(default=None, env="GOOGLE_CLIENT_ID")
+    google_client_secret: str | None = Field(default=None, env="GOOGLE_CLIENT_SECRET")
     google_calendar_id: str = Field(default="primary", env="GOOGLE_CALENDAR_ID")
-    
+
     # ============================================================
     # Twilio (SMS Alerts)
     # ============================================================
-    twilio_account_sid: Optional[str] = Field(default=None, env="TWILIO_ACCOUNT_SID")
-    twilio_auth_token: Optional[str] = Field(default=None, env="TWILIO_AUTH_TOKEN")
-    twilio_phone_number: Optional[str] = Field(default=None, env="TWILIO_PHONE_NUMBER")
-    
+    twilio_account_sid: str | None = Field(default=None, env="TWILIO_ACCOUNT_SID")
+    twilio_auth_token: str | None = Field(default=None, env="TWILIO_AUTH_TOKEN")
+    twilio_phone_number: str | None = Field(default=None, env="TWILIO_PHONE_NUMBER")
+
     # ============================================================
     # Stripe (Billing)
     # ============================================================
-    stripe_secret_key: Optional[str] = Field(default=None, env="STRIPE_SECRET_KEY")
-    stripe_webhook_secret: Optional[str] = Field(default=None, env="STRIPE_WEBHOOK_SECRET")
-    
+    stripe_secret_key: str | None = Field(default=None, env="STRIPE_SECRET_KEY")
+    stripe_webhook_secret: str | None = Field(default=None, env="STRIPE_WEBHOOK_SECRET")
+
     # ============================================================
     # Court Listener API (Case Research)
     # ============================================================
-    courtlistener_api_key: Optional[str] = Field(default=None, env="COURTLISTENER_API_KEY")
-    
+    courtlistener_api_key: str | None = Field(default=None, env="COURTLISTENER_API_KEY")
+
     # ============================================================
     # Server Configuration
     # ============================================================
-    host: str = Field(default="0.0.0.0", env="HOST")
+    host: str = Field(default="127.0.0.1", env="HOST")
     port: int = Field(default=8000, env="PORT")
     log_level: str = Field(default="info", env="LOG_LEVEL")
-    
+
     # ============================================================
     # Security
     # ============================================================
     secret_key: str = Field(default="dev-secret-key", env="SECRET_KEY")
-    encryption_key: Optional[bytes] = Field(default=None, env="ENCRYPTION_KEY")
-    
+    encryption_key: bytes | None = Field(default=None, env="ENCRYPTION_KEY")
+
     # ============================================================
     # Firm Defaults
     # ============================================================
     default_jurisdiction: str = Field(default="Texas", env="DEFAULT_JURISDICTION")
     default_billing_increment: float = Field(default=0.1, env="DEFAULT_BILLING_INCREMENT")
     conflict_check_required: bool = Field(default=True, env="CONFLICT_CHECK_REQUIRED")
-    
+
     # ============================================================
     # Model Configuration
     # ============================================================
-    orchestrator_model: str = Field(default="claude-3-5-sonnet-20241022", env="ORCHESTRATOR_MODEL")
-    contract_reviewer_model: str = Field(default="claude-3-5-sonnet-20241022", env="CONTRACT_REVIEWER_MODEL")
+    # Model defaults were pinned to claude-3-5-sonnet-20241022, superseded by
+    # the Claude 5 family. Every one is overridable by environment variable.
+    orchestrator_model: str = Field(default="claude-sonnet-5", env="ORCHESTRATOR_MODEL")
+    contract_reviewer_model: str = Field(default="claude-sonnet-5", env="CONTRACT_REVIEWER_MODEL")
     case_researcher_model: str = Field(default="gpt-4o", env="CASE_RESEARCHER_MODEL")
-    document_drafter_model: str = Field(default="claude-3-5-sonnet-20241022", env="DOCUMENT_DRAFTER_MODEL")
+    document_drafter_model: str = Field(default="claude-sonnet-5", env="DOCUMENT_DRAFTER_MODEL")
     deadline_tracker_model: str = Field(default="gpt-4o", env="DEADLINE_TRACKER_MODEL")
     billing_calculator_model: str = Field(default="gpt-4o", env="BILLING_CALCULATOR_MODEL")
-    
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
@@ -93,7 +96,7 @@ class Settings(BaseSettings):
 
 
 # Global settings instance
-_settings: Optional[Settings] = None
+_settings: Settings | None = None
 
 
 def get_settings() -> Settings:
