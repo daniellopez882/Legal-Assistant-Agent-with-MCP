@@ -68,7 +68,6 @@ dmypy.json
 docs/_build/
 
 # Docker
-.dockerignore
 
 # Temporary files
 *.tmp
