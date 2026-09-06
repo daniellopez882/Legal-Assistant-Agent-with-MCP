@@ -27,6 +27,7 @@ import pytest
 from langchain_core.messages import AIMessage
 
 os.environ.setdefault("ENVIRONMENT", "testing")
+os.environ.setdefault("API_KEY", "test-api-key-not-a-real-one")
 os.environ.setdefault("LOG_LEVEL", "WARNING")
 
 
@@ -101,8 +102,33 @@ def fake_llm_returning():
     return _factory
 
 
+TEST_API_KEY = os.environ["API_KEY"]
+
+
+@pytest.fixture(scope="session")
+def api_key() -> str:
+    return TEST_API_KEY
+
+
+@pytest.fixture(scope="session")
+def auth_headers(api_key) -> dict[str, str]:
+    return {"X-API-Key": api_key}
+
+
 @pytest.fixture
-def client():
+def client(auth_headers):
+    """An authenticated client: every /api/v1 route requires X-API-Key."""
+    from fastapi.testclient import TestClient
+
+    from src.server.server import create_app
+
+    with TestClient(create_app(), headers=auth_headers) as c:
+        yield c
+
+
+@pytest.fixture
+def anon_client():
+    """A client with no key, for asserting what is refused."""
     from fastapi.testclient import TestClient
 
     from src.server.server import create_app

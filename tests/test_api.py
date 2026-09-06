@@ -2,6 +2,7 @@
 Comprehensive tests for MCP Legal Assistant API.
 """
 
+import os
 from datetime import date, timedelta
 
 import pytest
@@ -22,7 +23,7 @@ from src.server.server import create_app
 def client():
     """Create test client."""
     app = create_app()
-    with TestClient(app) as test_client:
+    with TestClient(app, headers={"X-API-Key": os.environ["API_KEY"]}) as test_client:
         yield test_client
 
 

@@ -5,12 +5,13 @@ Provides REST API endpoints for external clients.
 
 import logging
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from src.agents import (
@@ -20,7 +21,9 @@ from src.agents import (
     DeadlineTrackerAgent,
     DocumentDrafterAgent,
 )
+from src.auth import require_api_key
 from src.config import get_settings
+from src.llm import LLMNotConfigured, credentials_available
 from src.models import (
     BillingCalculatorInput,
     CaseResearcherInput,
@@ -124,6 +127,31 @@ class StandardResponse(BaseModel):
 
 
 # ============================================================
+# ERRORS
+# ============================================================
+
+
+def _http_error(exc: Exception) -> HTTPException:
+    """
+    Map an agent failure to a response without echoing the exception.
+
+    ``detail=str(e)`` handed the caller whatever the agent raised: provider
+    error bodies (which carry request ids and key fragments), file paths and
+    Python type names. A missing credential is a 503 the operator can act on;
+    everything else is a 500 whose detail lives in the server log.
+    """
+    if isinstance(exc, LLMNotConfigured):
+        return HTTPException(
+            status_code=503,
+            detail="No model credentials are configured for this agent; see /ready.",
+        )
+    logger.exception("request failed")
+    return HTTPException(
+        status_code=500, detail="The request failed; the server log has the detail."
+    )
+
+
+# ============================================================
 # APP FACTORY
 # ============================================================
 
@@ -135,26 +163,30 @@ def create_app() -> FastAPI:
     Returns:
         Configured FastAPI application
     """
-    get_settings()
+    settings = get_settings()
 
     app = FastAPI(
         title="MCP Legal Assistant API",
-        description="AI-powered legal research and drafting assistant for law firms",
+        description="Legal research and drafting assistants behind an authenticated API",
         version="1.0.0",
-        docs_url="/docs",
-        redoc_url="/redoc",
+        docs_url=None if settings.is_production else "/docs",
+        redoc_url=None if settings.is_production else "/redoc",
+        openapi_url=None if settings.is_production else "/openapi.json",
     )
 
-    # Add CORS middleware
+    # Was allow_origins=["*"] with allow_credentials=True: a combination browsers
+    # reject outright, and every origin allowed in production.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Configure appropriately for production
+        allow_origins=settings.cors_origins
+        or ([] if settings.is_production else ["http://localhost:3000", "http://localhost:5173"]),
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["X-API-Key", "Content-Type"],
     )
 
-    # Initialize agents
+    # Initialize agents. Their models are built on first use (LazyChatModel),
+    # so this no longer needs live credentials.
     app.state.orchestrator = LegalOrchestrator()
     app.state.contract_reviewer = ContractReviewerAgent()
     app.state.case_researcher = CaseResearcherAgent()
@@ -169,16 +201,9 @@ def create_app() -> FastAPI:
 
 
 def register_routes(app: FastAPI):
-    """Register all API routes."""
+    """Register all API routes. Everything under /api/v1 requires X-API-Key."""
 
-    # Register authentication routes
-    try:
-        from src.auth import register_auth_routes
-
-        register_auth_routes(app)
-        logger.info("Authentication routes registered")
-    except ImportError as e:
-        logger.warning(f"Authentication not available: {e}")
+    protected = [Depends(require_api_key)]
 
     @app.get("/", response_model=StandardResponse)
     async def root():
@@ -199,14 +224,43 @@ def register_routes(app: FastAPI):
         return HealthResponse(
             status="healthy",
             version="1.0.0",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
+        )
+
+    @app.get("/ready")
+    async def ready():
+        """
+        Readiness: can this deployment serve real requests?
+
+        Reports which model providers have usable credentials and whether the
+        API key is safe for the environment. 503 until both hold, so a
+        container started without keys is visibly not ready instead of dying
+        at startup as it used to.
+        """
+        settings = get_settings()
+        providers = credentials_available()
+        checks = {
+            "llm_credentials": {
+                "ok": any(providers.values()),
+                "required": True,
+                "providers": providers,
+            },
+            "api_key": {
+                "ok": not (settings.is_production and settings.has_insecure_api_key),
+                "required": True,
+            },
+        }
+        is_ready = all(check["ok"] for check in checks.values() if check["required"])
+        return JSONResponse(
+            status_code=200 if is_ready else 503,
+            content={"ready": is_ready, "environment": settings.environment, "checks": checks},
         )
 
     # ============================================================
     # SPECIALIST AGENT ENDPOINTS
     # ============================================================
 
-    @app.post("/api/v1/contract/review", response_model=StandardResponse)
+    @app.post("/api/v1/contract/review", response_model=StandardResponse, dependencies=protected)
     async def review_contract(request: ContractReviewRequest):
         """
         Review a contract for risk clauses and unfavorable terms.
@@ -241,9 +295,9 @@ def register_routes(app: FastAPI):
 
         except Exception as e:
             logger.error(f"Contract review failed: {e}")
-            raise HTTPException(status_code=500, detail=str(e)) from e
+            raise _http_error(e) from e
 
-    @app.post("/api/v1/case/research", response_model=StandardResponse)
+    @app.post("/api/v1/case/research", response_model=StandardResponse, dependencies=protected)
     async def research_case(request: CaseResearchRequest):
         """
         Conduct legal research across case law and statutes.
@@ -279,9 +333,9 @@ def register_routes(app: FastAPI):
 
         except Exception as e:
             logger.error(f"Case research failed: {e}")
-            raise HTTPException(status_code=500, detail=str(e)) from e
+            raise _http_error(e) from e
 
-    @app.post("/api/v1/document/draft", response_model=StandardResponse)
+    @app.post("/api/v1/document/draft", response_model=StandardResponse, dependencies=protected)
     async def draft_document(request: DocumentDraftRequest):
         """
         Draft a legal document.
@@ -319,9 +373,9 @@ def register_routes(app: FastAPI):
 
         except Exception as e:
             logger.error(f"Document drafting failed: {e}")
-            raise HTTPException(status_code=500, detail=str(e)) from e
+            raise _http_error(e) from e
 
-    @app.post("/api/v1/deadlines/check", response_model=StandardResponse)
+    @app.post("/api/v1/deadlines/check", response_model=StandardResponse, dependencies=protected)
     async def check_deadlines(request: DeadlineTrackerRequest):
         """
         Check deadlines for a firm or specific matters.
@@ -347,9 +401,9 @@ def register_routes(app: FastAPI):
 
         except Exception as e:
             logger.error(f"Deadline tracking failed: {e}")
-            raise HTTPException(status_code=500, detail=str(e)) from e
+            raise _http_error(e) from e
 
-    @app.post("/api/v1/billing/calculate", response_model=StandardResponse)
+    @app.post("/api/v1/billing/calculate", response_model=StandardResponse, dependencies=protected)
     async def calculate_billing(request: BillingRequest):
         """
         Calculate billing and generate invoice.
@@ -378,13 +432,13 @@ def register_routes(app: FastAPI):
 
         except Exception as e:
             logger.error(f"Billing calculation failed: {e}")
-            raise HTTPException(status_code=500, detail=str(e)) from e
+            raise _http_error(e) from e
 
     # ============================================================
     # ORCHESTRATOR ENDPOINT
     # ============================================================
 
-    @app.post("/api/v1/orchestrate", response_model=StandardResponse)
+    @app.post("/api/v1/orchestrate", response_model=StandardResponse, dependencies=protected)
     async def orchestrate_task(request: OrchestratorRequest):
         """
         Orchestrate a legal task through the appropriate specialist agent.
@@ -429,13 +483,13 @@ def register_routes(app: FastAPI):
 
         except Exception as e:
             logger.error(f"Task orchestration failed: {e}")
-            raise HTTPException(status_code=500, detail=str(e)) from e
+            raise _http_error(e) from e
 
     # ============================================================
     # UTILITY ENDPOINTS
     # ============================================================
 
-    @app.get("/api/v1/templates", response_model=StandardResponse)
+    @app.get("/api/v1/templates", response_model=StandardResponse, dependencies=protected)
     async def list_templates():
         """List available document templates."""
         agent: DocumentDrafterAgent = app.state.document_drafter
@@ -451,7 +505,9 @@ def register_routes(app: FastAPI):
             message=f"Found {len(templates)} document templates",
         )
 
-    @app.post("/api/v1/validate/time-description", response_model=StandardResponse)
+    @app.post(
+        "/api/v1/validate/time-description", response_model=StandardResponse, dependencies=protected
+    )
     async def validate_time_description(description: str):
         """Validate a time entry description for quality."""
         agent: BillingCalculatorAgent = app.state.billing_calculator

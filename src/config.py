@@ -1,98 +1,106 @@
 """
-Configuration management for MCP Legal Assistant.
-Loads environment variables and provides typed settings.
+Configuration for the MCP Legal Assistant.
+
+Changes over the previous revision:
+
+* Adds ``api_key`` and ``environment``. Every ``/api/v1`` route depends on the
+  key; production refuses to start while it is the placeholder.
+* Adds ``cors_allow_origins``. The API allowed every origin with credentials, a
+  combination browsers reject and a misconfiguration for anything but a demo.
+* Removes settings nothing read: Stripe, Twilio, Google Calendar, CourtListener,
+  ``secret_key`` (it signed the JWTs of an in-memory user store that protected
+  no route) and ``encryption_key`` (never referenced).
+* Drops the ``env=`` keyword on every field. It is pydantic v1 syntax that
+  pydantic v2 ignores; the field name is the environment variable.
 """
 
-from pydantic import Field
-from pydantic_settings import BaseSettings
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+INSECURE_API_KEY = "changeme-in-production"
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
+    """Application settings loaded from environment variables and ``.env``."""
 
-    # ============================================================
-    # LLM API Keys
-    # ============================================================
-    openai_api_key: str = Field(default="sk-placeholder", env="OPENAI_API_KEY")
-    anthropic_api_key: str = Field(default="sk-ant-placeholder", env="ANTHROPIC_API_KEY")
-
-    # ============================================================
-    # Pinecone Vector Database
-    # ============================================================
-    pinecone_api_key: str = Field(default="placeholder-pinecone-key", env="PINECONE_API_KEY")
-    pinecone_environment: str = Field(default="us-west-2", env="PINECONE_ENVIRONMENT")
-    pinecone_index_name: str = Field(default="legal-assistant-index", env="PINECONE_INDEX_NAME")
-
-    # ============================================================
-    # Database (PostgreSQL)
-    # ============================================================
-    database_url: str = Field(
-        default="postgresql://localhost:5432/legal_assistant", env="DATABASE_URL"
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
-    database_async_url: str | None = Field(default=None, env="DATABASE_ASYNC_URL")
 
-    # ============================================================
-    # Google Calendar API (Deadline Tracker)
-    # ============================================================
-    google_client_id: str | None = Field(default=None, env="GOOGLE_CLIENT_ID")
-    google_client_secret: str | None = Field(default=None, env="GOOGLE_CLIENT_SECRET")
-    google_calendar_id: str = Field(default="primary", env="GOOGLE_CALENDAR_ID")
+    # ---- LLM providers -------------------------------------------------------
+    # Placeholders are recognised by src.llm and treated as "not configured".
+    openai_api_key: str = "sk-placeholder"
+    anthropic_api_key: str = "sk-ant-placeholder"
 
-    # ============================================================
-    # Twilio (SMS Alerts)
-    # ============================================================
-    twilio_account_sid: str | None = Field(default=None, env="TWILIO_ACCOUNT_SID")
-    twilio_auth_token: str | None = Field(default=None, env="TWILIO_AUTH_TOKEN")
-    twilio_phone_number: str | None = Field(default=None, env="TWILIO_PHONE_NUMBER")
+    # ---- Pinecone (case research, optional) -----------------------------------
+    pinecone_api_key: str = "placeholder-pinecone-key"
+    pinecone_environment: str = "us-west-2"
+    pinecone_index_name: str = "legal-assistant-index"
 
-    # ============================================================
-    # Stripe (Billing)
-    # ============================================================
-    stripe_secret_key: str | None = Field(default=None, env="STRIPE_SECRET_KEY")
-    stripe_webhook_secret: str | None = Field(default=None, env="STRIPE_WEBHOOK_SECRET")
+    # ---- Database (optional; nothing in the API uses it yet) ------------------
+    database_url: str = "postgresql://localhost:5432/legal_assistant"
+    database_async_url: str | None = None
 
-    # ============================================================
-    # Court Listener API (Case Research)
-    # ============================================================
-    courtlistener_api_key: str | None = Field(default=None, env="COURTLISTENER_API_KEY")
+    # ---- Server ---------------------------------------------------------------
+    host: str = "127.0.0.1"
+    port: int = 8000
+    log_level: str = "info"
 
-    # ============================================================
-    # Server Configuration
-    # ============================================================
-    host: str = Field(default="127.0.0.1", env="HOST")
-    port: int = Field(default=8000, env="PORT")
-    log_level: str = Field(default="info", env="LOG_LEVEL")
+    # ---- Security -------------------------------------------------------------
+    api_key: str = INSECURE_API_KEY
+    environment: Literal["development", "testing", "staging", "production"] = "development"
+    # Comma-separated browser origins. Empty means: the dev origins in
+    # development, nothing in production.
+    cors_allow_origins: str = ""
 
-    # ============================================================
-    # Security
-    # ============================================================
-    secret_key: str = Field(default="dev-secret-key", env="SECRET_KEY")
-    encryption_key: bytes | None = Field(default=None, env="ENCRYPTION_KEY")
+    # ---- Firm defaults ---------------------------------------------------------
+    default_jurisdiction: str = "Texas"
+    default_billing_increment: float = 0.1
+    conflict_check_required: bool = True
 
-    # ============================================================
-    # Firm Defaults
-    # ============================================================
-    default_jurisdiction: str = Field(default="Texas", env="DEFAULT_JURISDICTION")
-    default_billing_increment: float = Field(default=0.1, env="DEFAULT_BILLING_INCREMENT")
-    conflict_check_required: bool = Field(default=True, env="CONFLICT_CHECK_REQUIRED")
-
-    # ============================================================
-    # Model Configuration
-    # ============================================================
+    # ---- Model configuration ---------------------------------------------------
     # Model defaults were pinned to claude-3-5-sonnet-20241022, superseded by
     # the Claude 5 family. Every one is overridable by environment variable.
-    orchestrator_model: str = Field(default="claude-sonnet-5", env="ORCHESTRATOR_MODEL")
-    contract_reviewer_model: str = Field(default="claude-sonnet-5", env="CONTRACT_REVIEWER_MODEL")
-    case_researcher_model: str = Field(default="gpt-4o", env="CASE_RESEARCHER_MODEL")
-    document_drafter_model: str = Field(default="claude-sonnet-5", env="DOCUMENT_DRAFTER_MODEL")
-    deadline_tracker_model: str = Field(default="gpt-4o", env="DEADLINE_TRACKER_MODEL")
-    billing_calculator_model: str = Field(default="gpt-4o", env="BILLING_CALCULATOR_MODEL")
+    orchestrator_model: str = "claude-sonnet-5"
+    contract_reviewer_model: str = "claude-sonnet-5"
+    case_researcher_model: str = "gpt-4o"
+    document_drafter_model: str = "claude-sonnet-5"
+    deadline_tracker_model: str = "gpt-4o"
+    billing_calculator_model: str = "gpt-4o"
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-        extra = "ignore"
+    # ---- Derived ---------------------------------------------------------------
+    @property
+    def is_production(self) -> bool:
+        return self.environment == "production"
+
+    @property
+    def has_insecure_api_key(self) -> bool:
+        return self.api_key == INSECURE_API_KEY
+
+    @property
+    def cors_origins(self) -> list[str]:
+        return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
+
+    # ---- Fail closed -------------------------------------------------------------
+    @model_validator(mode="after")
+    def _guard_production(self) -> Settings:
+        if self.is_production:
+            self.validate_production_settings()
+        return self
+
+    def validate_production_settings(self) -> None:
+        problems: list[str] = []
+        if self.has_insecure_api_key:
+            problems.append(
+                "API_KEY is still the default placeholder. Generate one with: "
+                'python -c "import secrets; print(secrets.token_urlsafe(32))"'
+            )
+        if problems:
+            raise ValueError("Invalid production configuration:\n  - " + "\n  - ".join(problems))
 
 
 # Global settings instance
