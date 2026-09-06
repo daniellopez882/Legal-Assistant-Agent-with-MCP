@@ -1,9 +1,9 @@
 @echo off
-REM LexPilot - Quick Start Script for Windows
+REM MCP Legal Assistant - quick start for Windows
 REM Automates setup and startup process
 
 echo ========================================
-echo   LexPilot - AI Legal Assistant
+echo   MCP Legal Assistant
 echo   Quick Start Script
 echo ========================================
 echo.
@@ -34,7 +34,7 @@ if not exist ".env" (
     copy .env.example .env
     echo.
     echo IMPORTANT: Edit .env and add your API keys!
-    echo    Required: OPENAI_API_KEY, ANTHROPIC_API_KEY
+    echo    Set API_KEY (required on every /api/v1 route) and at least one of OPENAI_API_KEY, ANTHROPIC_API_KEY.
     echo.
     pause
 )
@@ -42,7 +42,7 @@ if not exist ".env" (
 REM Start server
 echo.
 echo ========================================
-echo   Starting LexPilot Server...
+echo   Starting the API...
 echo ========================================
 echo.
 echo   API Docs: http://localhost:8000/docs

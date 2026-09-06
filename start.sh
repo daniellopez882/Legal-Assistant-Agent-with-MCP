@@ -1,11 +1,11 @@
 #!/bin/bash
-# LexPilot - Quick Start Script
+# MCP Legal Assistant - quick start
 # Automates setup and startup process
 
 set -e
 
 echo "========================================"
-echo "  LexPilot - AI Legal Assistant"
+echo "  MCP Legal Assistant"
 echo "  Quick Start Script"
 echo "========================================"
 echo ""
@@ -36,7 +36,7 @@ if [ ! -f ".env" ]; then
     cp .env.example .env
     echo ""
     echo "⚠️  IMPORTANT: Edit .env and add your API keys!"
-    echo "   Required: OPENAI_API_KEY, ANTHROPIC_API_KEY"
+    echo "   Set API_KEY (required on every /api/v1 route) and at least one of OPENAI_API_KEY, ANTHROPIC_API_KEY."
     echo ""
     read -p "Press Enter after you've updated .env..."
 fi
@@ -48,7 +48,7 @@ python -c "from src.database import init_database; import asyncio; asyncio.run(i
 # Start server
 echo ""
 echo "========================================"
-echo "  Starting LexPilot Server..."
+echo "  Starting the API..."
 echo "========================================"
 echo ""
 echo "  API Docs: http://localhost:8000/docs"
