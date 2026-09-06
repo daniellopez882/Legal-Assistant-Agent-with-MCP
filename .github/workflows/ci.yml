@@ -28,7 +28,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov ruff bandit
+          pip install bandit pip-audit
 
       - name: Ruff lint
         run: ruff check . --output-format=github
@@ -69,8 +69,10 @@ jobs:
           PY
 
       - name: Bandit
-        run: bandit -r src -ll -f screen
-        continue-on-error: true
+        run: bandit -q -r src -ll
+
+      - name: Dependency audit
+        run: pip-audit --progress-spinner off
 
   docker:
     name: Docker build
@@ -89,3 +91,49 @@ jobs:
           tags: legal-assistant:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Container boots without model credentials and serves /health
+        # The previous image was built here and never run. Running it showed
+        # that create_app() built every agent's model at startup, so without
+        # live keys the container exited before serving anything.
+        run: |
+          docker run -d --name la-ci -p 8000:8000 -e API_KEY=ci-key-not-real legal-assistant:ci
+          for i in $(seq 1 40); do
+            if curl -fsS http://localhost:8000/health >/dev/null 2>&1; then
+              echo "healthy after ${i}s"; curl -fsS http://localhost:8000/health; echo; exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::container never became healthy"; docker logs la-ci; exit 1
+
+      - name: Readiness says why it cannot serve yet
+        run: |
+          code=$(curl -s -o /tmp/ready.json -w "%{http_code}" http://localhost:8000/ready)
+          cat /tmp/ready.json; echo
+          [ "$code" = "503" ] || { echo "::error::expected 503 without model credentials, got $code"; exit 1; }
+          grep -q '"llm_credentials": {"ok": false' /tmp/ready.json || python3 -c '
+          import json; d = json.load(open("/tmp/ready.json")); assert d["checks"]["llm_credentials"]["ok"] is False'
+
+      - name: Agent routes reject unauthenticated callers
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" -X POST http://localhost:8000/api/v1/contract/review \
+            -H 'Content-Type: application/json' -d '{}')
+          echo "unauthenticated POST /api/v1/contract/review -> $code"
+          [ "$code" = "401" ] || { echo "::error::agent routes are not protected"; exit 1; }
+
+      - name: Production refuses the placeholder key
+        run: |
+          if docker run --rm legal-assistant:ci python -c 'from src.config import Settings; Settings(environment="production")' 2>/dev/null; then
+            echo "::error::a production start with the placeholder API_KEY was accepted"; exit 1
+          fi
+          echo "refused, as it should be"
+
+      - name: Image does not run as root
+        run: |
+          uid=$(docker run --rm --entrypoint sh legal-assistant:ci -c 'id -u')
+          echo "runs as uid $uid"
+          [ "$uid" != "0" ] || { echo "::error::image runs as root"; exit 1; }
+
+      - name: Clean up
+        if: always()
+        run: docker rm -f la-ci || true

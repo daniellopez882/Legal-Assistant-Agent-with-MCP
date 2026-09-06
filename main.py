@@ -3,14 +3,9 @@ MCP Legal Assistant - Main Entry Point
 """
 
 import asyncio
-import sys
 from pathlib import Path
 
 import click
-
-# Add src to path
-src_path = Path(__file__).parent / "src"
-sys.path.insert(0, str(src_path))
 
 
 @click.group()
