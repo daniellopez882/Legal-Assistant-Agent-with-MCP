@@ -11,7 +11,7 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
 from src.config import get_settings
-from src.llm import get_chat_model
+from src.llm import LazyChatModel
 from src.models import (
     AlertStatus,
     DeadlineInfo,
@@ -75,6 +75,8 @@ class DeadlineTrackerAgent:
         },
     }
 
+    llm = LazyChatModel()
+
     def __init__(self, model: str | None = None):
         """
         Initialize Deadline Tracker agent.
@@ -85,11 +87,9 @@ class DeadlineTrackerAgent:
         settings = get_settings()
         self.model_name = model or settings.deadline_tracker_model
 
-        self.llm = get_chat_model(
-            self.model_name,
-            temperature=0.1,
-            max_tokens=8192,
-        )
+        # Built on first use (LazyChatModel): constructing the model here needed
+        # live credentials at startup, so the API could not boot without them.
+        self.llm_options = {"temperature": 0.1, "max_tokens": 8192}
 
         self.prompt = self._build_prompt()
 
