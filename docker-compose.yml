@@ -1,0 +1,21 @@
+# The previous file started a Postgres the API never connects to (src/database.py
+# is imported by nothing), a pgAdmin with admin/admin, and gave SECRET_KEY the
+# default "dev-secret-key". This one starts the API and nothing else.
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Required. The image runs with ENVIRONMENT=production, which refuses the
+      # placeholder key; generate one with:
+      #   python -c "import secrets; print(secrets.token_urlsafe(32))"
+      API_KEY: ${API_KEY:?set API_KEY in .env or the shell}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      # At least one is needed before /ready reports 200 and the agent routes
+      # answer anything but 503.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    restart: unless-stopped

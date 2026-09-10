@@ -1,0 +1,32 @@
+# Keep the build context to what the image needs. Without this file the
+# context included .git, the local virtualenv, coverage output and -- if a
+# developer had one -- the .env holding real keys, which COPY . . would have
+# baked into an image layer.
+.git
+.gitignore
+.venv
+venv
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+htmlcov
+.coverage
+coverage.xml
+.env
+.env.*
+!.env.example
+*.log
+logs/
+tests/
+docs/
+*.md
+!README.md
+docker-compose.yml
+Dockerfile
+.dockerignore
+.github/
+start.bat
+start.sh
