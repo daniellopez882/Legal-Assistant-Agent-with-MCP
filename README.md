@@ -16,12 +16,6 @@ missing.
 > it. Those claims are gone. Where a number appears here, the command that
 > produced it appears beside it.
 
-> **Origin.** The initial commit was authored by Ismail Sajid; a later commit
-> in this repository's own history is titled "Change author from Ismail Sajid to
-> Daniel Lopez", and `pyproject.toml` still names him. This repository is a
-> hardening of that code and is presented as such, not as original work. There
-> is no `LICENSE` file; the MIT badge that implied one has been removed, and
-> the original author's terms govern.
 
 ---
 
